@@ -1,0 +1,5 @@
+/sonde
+/dist/
+*.test
+.env
+.DS_Store

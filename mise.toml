@@ -1,0 +1,10 @@
+[tools]
+go = "1.26"
+
+[tasks.build]
+description = "Build the sonde binary"
+run = "go build -o sonde ."
+
+[tasks.check]
+description = "Run the quality gate: fmt, vet, test, build"
+run = "gofmt -l . && go vet ./... && go test ./... && go build ./..."
