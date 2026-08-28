@@ -1,6 +1,6 @@
-/sonde
-/bin/
-/dist/
-*.test
+bin/
+dist/
+
+*.log
 .env
 .DS_Store

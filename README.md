@@ -11,6 +11,7 @@ the shell.
   browser is on another machine can still log in, with the loopback browser flow
   as the fallback
 - `sonde monitors list/add/remove`, `sonde status`, `sonde incidents`
+- `--json` on every command that carries data
 - Credential precedence flag > environment (`SONDE_TOKEN`, `SONDE_SERVER_URL`) >
   config file
 - Config at `${XDG_CONFIG_HOME:-~/.config}/sonde/config.yml`, created owner-only
@@ -52,7 +53,7 @@ sonde monitors add --slug backups --name "Nightly backups" --type push --interva
 ```
 
 ```
-0 3 * * * sonde push <token> --instance https://sonde.example.com
+0 3 * * * sonde push <token> --url https://sonde.example.com
 ```
 
 ## Signing in
@@ -75,8 +76,9 @@ up on the loopback flow never makes anybody type a code first.
 
 | Variable | Purpose |
 |---|---|
-| `SONDE_SERVER_URL` | Instance URL |
+| `SONDE_SERVER_URL` | Instance URL, overriding the stored one. `--url` beats both. `SONDE_URL` is an accepted alias |
 | `SONDE_TOKEN` | Credential, for CI |
+| `SONDE_OIDC_ISSUER` | Identity provider for the device grant. Must be https, or loopback |
 
 Config file: `${XDG_CONFIG_HOME:-~/.config}/sonde/config.yml`. There is no
 default instance URL: Sonde is self-hosted, and guessing an address would send a
@@ -89,7 +91,8 @@ main.go                  entry point
 cmd/                     cobra commands
 internal/api/            Sonde REST client
 internal/config/         credential storage and resolution
-internal/devicegrant/    RFC 8628 against sso.facile.studio
+internal/devicegrant/    RFC 8628 against sso.facile.studio: constants and
+                         transport, discovery.go, poll.go
 internal/loopback/       the same-machine browser flow
 internal/ui/             output vocabulary per CLI-STANDARD §7
 docs/                    usage and development docs
@@ -100,5 +103,6 @@ install.sh               facile shim
 
 - [docs/usage.md](docs/usage.md) — full command reference
 - [docs/development.md](docs/development.md) — building, testing, releasing
+- [CHANGELOG.md](CHANGELOG.md) — what shipped, per release
 
 Part of [Facile Studio](https://github.com/FacileStudio).

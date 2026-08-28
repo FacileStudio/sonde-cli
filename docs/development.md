@@ -19,7 +19,9 @@ main.go                    entry point
 cmd/                       cobra commands
 internal/api/              Sonde REST client (client.go, auth.go, monitors.go)
 internal/config/           credential storage and the precedence ladder
-internal/devicegrant/      RFC 8628 against sso.facile.studio
+internal/devicegrant/      RFC 8628 against sso.facile.studio, in three files:
+                           devicegrant.go (constants, Authorize, transport),
+                           discovery.go, poll.go
 internal/loopback/         the same-machine browser flow
 internal/ui/               output vocabulary per CLI-STANDARD §7
 ```

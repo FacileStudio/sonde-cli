@@ -1,6 +1,12 @@
 # Usage
 
-Every command accepts `--instance <url>` and `--no-color`.
+Every command accepts `--url <url>`, `--json` and `--no-color`.
+
+`--json` prints one document to stdout and nothing else, and forces colour off.
+Every command that carries data honours it: `monitors list`, `monitors add`,
+`monitors remove`, `status` and `incidents`.
+
+Exit codes are `0` success, `1` failure, `2` usage error, `130` on Ctrl-C.
 
 ## login
 
@@ -50,7 +56,7 @@ is kept. Running it while signed out is not an error.
 ## push
 
 ```sh
-sonde push <token> [--instance <url>]
+sonde push <token> [--url <url>]
 ```
 
 Sends `POST {instance}/api/push/{token}`. Unauthenticated by design: the token
@@ -61,7 +67,7 @@ fails loudly instead of reporting a dead job alive.
 The cron line:
 
 ```
-* * * * * sonde push <token> --instance https://sonde.example.com
+* * * * * sonde push <token> --url https://sonde.example.com
 ```
 
 ## monitors
@@ -111,7 +117,11 @@ Precedence: flag > environment > config file.
 
 - `SONDE_TOKEN` overrides the stored credential, which is the only credential
   channel a CI job has.
-- `SONDE_SERVER_URL` overrides the instance.
+- `SONDE_SERVER_URL` overrides the instance. `SONDE_URL` is an accepted alias,
+  and the canonical spelling wins when both are set.
+- `SONDE_OIDC_ISSUER` points the device grant at another identity provider. It
+  must be `https`, or a loopback address: everything the grant trusts comes out
+  of the provider's discovery document.
 - Config lives at `${XDG_CONFIG_HOME:-~/.config}/sonde/config.yml`, created
   `0600` in a `0700` directory, and tightened on read if it is found looser.
 
