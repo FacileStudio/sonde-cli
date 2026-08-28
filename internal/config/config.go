@@ -18,8 +18,13 @@ import (
 // channel it has.
 const TokenEnv = "SONDE_TOKEN"
 
-// URLEnv overrides the stored instance URL.
+// URLEnv overrides the stored instance URL. It is the canonical spelling the
+// CLI standard gives it, and it wins when both spellings are set.
 const URLEnv = "SONDE_SERVER_URL"
+
+// URLEnvAlias is the shorter spelling the rest of the suite accepts alongside
+// the canonical one, so a profile that already exports it keeps working.
+const URLEnvAlias = "SONDE_URL"
 
 // Config is the whole stored state. There is no default instance URL on
 // purpose: Sonde is self-hosted and guessing an address for it would send a
@@ -54,6 +59,10 @@ func Path() string { return filepath.Join(Dir(), "config.yml") }
 func Load() (Config, error) {
 	var cfg Config
 
+	if err := secureDir(); err != nil {
+		return cfg, err
+	}
+
 	file, err := os.Open(Path())
 	if errors.Is(err, os.ErrNotExist) {
 		return cfg, nil
@@ -84,12 +93,38 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
+// secureDir tightens the configuration directory to 0700 when it exists with
+// any group or other bit set, and is a no-op when it does not exist yet.
+//
+// It is the directory half of the tighten-on-read rule the file already
+// follows. MkdirAll's mode applies only when it creates the directory, so a
+// ~/.config/sonde that predates this CLI, or that another tool created 0755,
+// keeps that mode forever while the token inside it is diligently 0600. A
+// world-readable directory does not expose the file's bytes, but it does list
+// the file and leaves the mode one careless umask away from mattering.
+func secureDir() error {
+	info, err := os.Stat(Dir())
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() || info.Mode().Perm()&0o077 == 0 {
+		return nil
+	}
+	return os.Chmod(Dir(), 0o700)
+}
+
 // Save writes the configuration owner-only. The file holds a bearer token, so
 // the mode is set at creation rather than chmod'd afterwards: writing first and
 // fixing the mode second leaves a window in which the token is world-readable,
 // and on a shared machine that window is the whole attack.
 func Save(cfg Config) error {
 	if err := os.MkdirAll(Dir(), 0o700); err != nil {
+		return err
+	}
+	if err := secureDir(); err != nil {
 		return err
 	}
 
@@ -148,10 +183,19 @@ func ResolveURL(stored, flag string) string {
 	if flag != "" {
 		return NormalizeURL(flag)
 	}
-	if fromEnv := os.Getenv(URLEnv); fromEnv != "" {
+	if fromEnv := urlFromEnv(); fromEnv != "" {
 		return NormalizeURL(fromEnv)
 	}
 	return NormalizeURL(stored)
+}
+
+// urlFromEnv reads the instance URL, preferring the canonical
+// SONDE_SERVER_URL over the SONDE_URL alias.
+func urlFromEnv() string {
+	if value := strings.TrimSpace(os.Getenv(URLEnv)); value != "" {
+		return value
+	}
+	return strings.TrimSpace(os.Getenv(URLEnvAlias))
 }
 
 // ResolveToken applies the same ladder to the credential. There is no flag: a

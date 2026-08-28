@@ -58,6 +58,47 @@ func TestLoadTightensLoosePermissions(t *testing.T) {
 	}
 }
 
+// TestLoadTightensTheDirectoryToo pins the directory half of the rule.
+// MkdirAll's mode applies only when it creates the directory, so a
+// ~/.config/sonde that already existed 0755 stays 0755 while the file inside it
+// is written 0600.
+func TestLoadTightensTheDirectoryToo(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	if err := Save(Config{URL: "https://sonde.example.test", Token: "secret"}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if err := os.Chmod(Dir(), 0o755); err != nil {
+		t.Fatalf("Chmod: %v", err)
+	}
+
+	if _, err := Load(); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	info, err := os.Stat(Dir())
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o700 {
+		t.Errorf("dir mode after Load = %#o, want 0700", perm)
+	}
+}
+
+// TestURLEnvAliasLosesToTheCanonicalName pins the precedence between the two
+// accepted spellings.
+func TestURLEnvAliasLosesToTheCanonicalName(t *testing.T) {
+	t.Setenv(URLEnv, "canonical.example.test")
+	t.Setenv(URLEnvAlias, "alias.example.test")
+	if got := ResolveURL("", ""); got != "https://canonical.example.test" {
+		t.Errorf("with both set = %q, want the canonical name", got)
+	}
+
+	t.Setenv(URLEnv, "")
+	if got := ResolveURL("", ""); got != "https://alias.example.test" {
+		t.Errorf("with only the alias set = %q, want the alias", got)
+	}
+}
+
 // TestClearKeepsTheInstanceURL pins that logging out does not also make the
 // user retype where their instance is.
 func TestClearKeepsTheInstanceURL(t *testing.T) {
