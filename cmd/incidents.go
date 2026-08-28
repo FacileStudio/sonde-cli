@@ -24,7 +24,7 @@ running.`,
 		ctx, stop := signalContext()
 		defer stop()
 
-		client, err := newClient(cmd, true)
+		client, err := newClient(true)
 		if err != nil {
 			return err
 		}
@@ -40,6 +40,9 @@ running.`,
 		incidents, err := client.Incidents(ctx, monitorID)
 		if err != nil {
 			return wrapInterrupt(ctx, err)
+		}
+		if flagJSON {
+			return ui.JSON(incidents)
 		}
 		if len(incidents) == 0 {
 			ui.Success("no incidents")

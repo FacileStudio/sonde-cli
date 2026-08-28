@@ -57,7 +57,7 @@ Alternatives that skip all of it:
 		if err != nil {
 			return err
 		}
-		serverURL, err := resolveLoginURL(cmd, cfg.URL, args)
+		serverURL, err := resolveLoginURL(cfg.URL, args)
 		if err != nil {
 			return err
 		}
@@ -80,10 +80,10 @@ Alternatives that skip all of it:
 }
 
 // resolveLoginURL applies the precedence the CLI standard requires, highest
-// first: the positional argument, --instance, SONDE_SERVER_URL, then the stored
-// URL. Sonde is self-hosted and has no built-in default to fall back on.
-func resolveLoginURL(cmd *cobra.Command, stored string, args []string) (string, error) {
-	resolved := config.ResolveURL(stored, instanceFlag(cmd))
+// first: the positional argument, --url, SONDE_SERVER_URL, then the stored URL.
+// Sonde is self-hosted and has no built-in default to fall back on.
+func resolveLoginURL(stored string, args []string) (string, error) {
+	resolved := config.ResolveURL(stored, flagURL)
 	if len(args) == 1 {
 		resolved = config.NormalizeURL(args[0])
 	}
@@ -132,13 +132,16 @@ func acquireToken(ctx context.Context, serverURL string) (string, error) {
 func federatedLogin(ctx context.Context, client *api.Client, serverURL string) (string, error) {
 	if client.ServesDeviceExchange(ctx) {
 		token, err := deviceLogin(ctx, client)
-		if err == nil {
+		switch {
+		case err == nil:
 			return token, nil
-		}
-		if !errors.Is(err, errNoDeviceGrant) {
+		case errors.Is(err, errNoDeviceGrant):
+			ui.Hint("the identity provider does not offer the device grant — using the browser on this machine")
+		case errors.Is(err, errNoDeviceExchange):
+			ui.Hint("this instance has not shipped the device exchange — using the browser on this machine")
+		default:
 			return "", err
 		}
-		ui.Hint("the identity provider does not offer the device grant — using the browser on this machine")
 	}
 	return loopbackLogin(ctx, client, serverURL)
 }

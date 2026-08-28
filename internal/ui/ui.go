@@ -4,6 +4,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -48,6 +49,15 @@ func Error(format string, a ...any) {
 // Hint explains the line above it.
 func Hint(format string, a ...any) {
 	fmt.Fprintf(os.Stdout, "  %s\n", faint.Sprint(fmt.Sprintf(format, a...)))
+}
+
+// JSON writes one document to stdout and nothing else, for --json. Colour is
+// already off by the time this runs: a caller piping into jq must not receive
+// escape codes.
+func JSON(value any) error {
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
 }
 
 // Rows is a column-aligned listing. Nothing is written until Flush, so a

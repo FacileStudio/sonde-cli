@@ -31,23 +31,39 @@ monitor with no checks yet is unknown, never a fabricated green.`,
 		defer stop()
 
 		if len(args) == 1 {
-			return publicStatus(ctx, cmd, args[0])
+			return publicStatus(ctx, args[0])
 		}
-		return ownStatus(ctx, cmd)
+		return ownStatus(ctx)
 	},
+}
+
+// statusRow is one monitor's line, and the shape --json emits. It is the table
+// as data: a script reading it gets the verdict and the ratio the human sees,
+// rather than having to reassemble them from the monitors and incidents calls.
+type statusRow struct {
+	ID     int64      `json:"id"`
+	Slug   string     `json:"slug"`
+	Name   string     `json:"name"`
+	Status string     `json:"status"`
+	Window string     `json:"window"`
+	Uptime *float64   `json:"uptime"`
+	Since  *time.Time `json:"since"`
 }
 
 // publicStatus renders a published status page. It deliberately does not
 // require a token: this is the readout somebody can check from a machine that
 // has never logged in.
-func publicStatus(ctx context.Context, cmd *cobra.Command, slug string) error {
-	client, err := newClient(cmd, false)
+func publicStatus(ctx context.Context, slug string) error {
+	client, err := newClient(false)
 	if err != nil {
 		return err
 	}
 	page, err := client.PublicStatus(ctx, slug)
 	if err != nil {
 		return wrapInterrupt(ctx, err)
+	}
+	if flagJSON {
+		return ui.JSON(page)
 	}
 	if len(page.Monitors) == 0 {
 		ui.Warn("status page %q lists no monitors", page.Slug)
@@ -72,8 +88,8 @@ func publicStatus(ctx context.Context, cmd *cobra.Command, slug string) error {
 // ownStatus builds the readout the API has no single endpoint for: the monitors
 // list carries no current state, so downness comes from the incidents that are
 // still open and the percentage from each monitor's uptime window.
-func ownStatus(ctx context.Context, cmd *cobra.Command) error {
-	client, err := newClient(cmd, true)
+func ownStatus(ctx context.Context) error {
+	client, err := newClient(true)
 	if err != nil {
 		return err
 	}
@@ -81,7 +97,7 @@ func ownStatus(ctx context.Context, cmd *cobra.Command) error {
 	if err != nil {
 		return wrapInterrupt(ctx, err)
 	}
-	if len(monitors) == 0 {
+	if len(monitors) == 0 && !flagJSON {
 		ui.Warn("no monitors yet — add one with `sonde monitors add`")
 		return nil
 	}
@@ -89,12 +105,40 @@ func ownStatus(ctx context.Context, cmd *cobra.Command) error {
 	if err != nil {
 		return wrapInterrupt(ctx, err)
 	}
-	open := openByMonitor(incidents)
 
-	table := ui.Table("STATUS", "SLUG", "NAME", "UPTIME "+statusWindow, "SINCE")
+	rows := statusRows(ctx, client, monitors, openByMonitor(incidents))
+	if flagJSON {
+		return ui.JSON(rows)
+	}
+	return renderStatus(rows)
+}
+
+// statusRows assembles the readout the API has no single endpoint for: the
+// monitors list carries no current state, so downness comes from the incidents
+// still open and the percentage from each monitor's uptime window.
+func statusRows(ctx context.Context, client *api.Client, monitors []api.Monitor,
+	open map[int64]*api.Incident) []statusRow {
+	rows := make([]statusRow, 0, len(monitors))
 	for _, monitor := range monitors {
 		state, since := verdict(monitor, open[monitor.ID])
-		table.Row(state, monitor.Slug, monitor.Name, uptimeFor(ctx, client, monitor.ID), since)
+		rows = append(rows, statusRow{
+			ID:     monitor.ID,
+			Slug:   monitor.Slug,
+			Name:   monitor.Name,
+			Status: state,
+			Window: statusWindow,
+			Uptime: uptimeFor(ctx, client, monitor.ID),
+			Since:  since,
+		})
+	}
+	return rows
+}
+
+// renderStatus prints the rows as a table.
+func renderStatus(rows []statusRow) error {
+	table := ui.Table("STATUS", "SLUG", "NAME", "UPTIME "+statusWindow, "SINCE")
+	for _, row := range rows {
+		table.Row(row.Status, row.Slug, row.Name, ratio(row.Uptime), since(row.Since))
 	}
 	return table.Flush()
 }
@@ -102,15 +146,24 @@ func ownStatus(ctx context.Context, cmd *cobra.Command) error {
 // verdict names a monitor's state from what the authenticated API can prove. A
 // disabled monitor is not down, it is off, and saying "up" for either would be
 // a claim nothing here supports.
-func verdict(monitor api.Monitor, incident *api.Incident) (string, string) {
+func verdict(monitor api.Monitor, incident *api.Incident) (string, *time.Time) {
 	switch {
 	case incident != nil:
-		return "down", incident.OpenedAt.Format(time.RFC3339)
+		opened := incident.OpenedAt
+		return "down", &opened
 	case !monitor.Enabled:
-		return "paused", "-"
+		return "paused", nil
 	default:
-		return "ok", "-"
+		return "ok", nil
 	}
+}
+
+// since renders when a monitor went down, or a dash when it has not.
+func since(at *time.Time) string {
+	if at == nil {
+		return "-"
+	}
+	return at.Format(time.RFC3339)
 }
 
 // openByMonitor indexes the still-running incidents by monitor, keeping the
@@ -126,15 +179,15 @@ func openByMonitor(incidents []api.Incident) map[int64]*api.Incident {
 	return open
 }
 
-// uptimeFor reads one monitor's window. A failure prints as unknown rather than
+// uptimeFor reads one monitor's window. A failure reads as unknown rather than
 // ending the listing: one monitor the server could not summarise is no reason
 // to withhold the state of the others.
-func uptimeFor(ctx context.Context, client *api.Client, id int64) string {
+func uptimeFor(ctx context.Context, client *api.Client, id int64) *float64 {
 	summary, err := client.MonitorUptime(ctx, id, statusWindow)
 	if err != nil {
-		return "?"
+		return nil
 	}
-	return ratio(summary.Uptime)
+	return summary.Uptime
 }
 
 // ratio renders an uptime percentage, which is what the server already sends:

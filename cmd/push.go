@@ -20,7 +20,7 @@ none is read.
 
 This is the cron line:
 
-  * * * * * sonde push <token> --instance https://sonde.example.com
+  * * * * * sonde push <token> --url https://sonde.example.com
 
 The instance may come from SONDE_SERVER_URL instead, which is what a systemd
 timer or a container tends to have. A heartbeat for an unknown token is a 404,
@@ -34,7 +34,7 @@ so a typo fails loudly rather than reporting a job alive.`,
 			return errors.New("the push token is empty")
 		}
 
-		client, err := newClient(cmd, false)
+		client, err := newClient(false)
 		if err != nil {
 			return err
 		}

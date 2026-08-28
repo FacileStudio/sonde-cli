@@ -36,13 +36,16 @@ var monitorsListCmd = &cobra.Command{
 		ctx, stop := signalContext()
 		defer stop()
 
-		client, err := newClient(cmd, true)
+		client, err := newClient(true)
 		if err != nil {
 			return err
 		}
 		monitors, err := client.Monitors(ctx)
 		if err != nil {
 			return wrapInterrupt(ctx, err)
+		}
+		if flagJSON {
+			return ui.JSON(monitors)
 		}
 		if len(monitors) == 0 {
 			ui.Warn("no monitors yet — add one with `sonde monitors add`")
@@ -79,7 +82,7 @@ here.`,
 		ctx, stop := signalContext()
 		defer stop()
 
-		client, err := newClient(cmd, true)
+		client, err := newClient(true)
 		if err != nil {
 			return err
 		}
@@ -96,11 +99,14 @@ here.`,
 		if err != nil {
 			return wrapInterrupt(ctx, err)
 		}
+		if flagJSON {
+			return ui.JSON(created)
+		}
 
 		ui.Success("monitor %d created (%s)", created.ID, created.Slug)
 		if created.PushToken != nil {
 			ui.Step("push token: %s", *created.PushToken)
-			ui.Hint("cron line: * * * * * sonde push %s --instance %s", *created.PushToken, client.BaseURL)
+			ui.Hint("cron line: * * * * * sonde push %s --url %s", *created.PushToken, client.BaseURL)
 		}
 		return nil
 	},
@@ -114,7 +120,7 @@ var monitorsRemoveCmd = &cobra.Command{
 		ctx, stop := signalContext()
 		defer stop()
 
-		client, err := newClient(cmd, true)
+		client, err := newClient(true)
 		if err != nil {
 			return err
 		}
@@ -124,6 +130,12 @@ var monitorsRemoveCmd = &cobra.Command{
 		}
 		if err := client.DeleteMonitor(ctx, id); err != nil {
 			return wrapInterrupt(ctx, err)
+		}
+		if flagJSON {
+			return ui.JSON(struct {
+				ID      int64 `json:"id"`
+				Removed bool  `json:"removed"`
+			}{id, true})
 		}
 		ui.Success("monitor %d removed", id)
 		return nil

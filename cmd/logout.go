@@ -39,7 +39,7 @@ Running it with no session stored is not an error.`,
 			cfg = config.Config{}
 		}
 
-		serverURL := config.ResolveURL(cfg.URL, instanceFlag(cmd))
+		serverURL := config.ResolveURL(cfg.URL, flagURL)
 		if cfg.Token != "" && serverURL != "" {
 			if err := api.New(serverURL, cfg.Token).Logout(ctx); err != nil {
 				var apiErr *api.Error
