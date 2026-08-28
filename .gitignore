@@ -1,4 +1,5 @@
 /sonde
+/bin/
 /dist/
 *.test
 .env
