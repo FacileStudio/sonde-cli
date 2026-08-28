@@ -23,13 +23,31 @@ import (
 // document, and it keeps the day the provider gains the grant a non-event.
 var errNoDeviceGrant = errors.New("the identity provider does not offer the device grant")
 
+// errNoDeviceExchange means this instance has not shipped porte's device
+// exchange. It is a separate sentinel from errNoDeviceGrant because the two
+// name different machines: one is the provider's answer and one is the
+// instance's, and blaming the wrong one sends whoever is fixing it to the wrong
+// server.
+var errNoDeviceExchange = errors.New("this instance has not shipped the device exchange")
+
 // deviceLogin signs in at the provider without a browser on this machine, then
 // trades the provider's access token for a Sonde session at porte's device
 // exchange. The provider token never reaches disk.
+//
+// Only the provider's own "no" falls back. A discovery that could not be made
+// at all — DNS, TLS, a timeout, a 500 — is returned as itself, because the
+// fallback is the loopback flow and the machine that needs the device grant is
+// by definition the machine that cannot run it. Reporting an unreachable
+// provider as a provider that declined would send a headless server into a
+// browser flow and leave it waiting on a redirect nothing will send.
 func deviceLogin(ctx context.Context, client *api.Client) (string, error) {
-	provider, err := devicegrant.Discover(ctx, devicegrant.Issuer())
+	issuer, err := devicegrant.Issuer()
 	if err != nil {
-		return "", errNoDeviceGrant
+		return "", err
+	}
+	provider, err := devicegrant.Discover(ctx, issuer)
+	if err != nil {
+		return "", wrapInterrupt(ctx, err)
 	}
 	if !provider.OffersDeviceGrant {
 		return "", errNoDeviceGrant
@@ -50,7 +68,7 @@ func deviceLogin(ctx context.Context, client *api.Client) (string, error) {
 	if err != nil {
 		var apiErr *api.Error
 		if errors.As(err, &apiErr) && apiErr.NotFound() {
-			return "", errNoDeviceGrant
+			return "", errNoDeviceExchange
 		}
 		return "", wrapInterrupt(ctx, fmt.Errorf("the instance refused the provider's token — %w", err))
 	}
