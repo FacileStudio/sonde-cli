@@ -1,0 +1,57 @@
+version: 2
+
+project_name: sonde-cli
+
+builds:
+  - main: .
+    binary: sonde
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/FacileStudio/sonde-cli/cmd.version={{.Version}}
+
+archives:
+  - formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+
+# A cask, not a formula: goreleaser soft-deprecated `brews` in v2.10 and hard-
+# deprecated it in v2.16, and casks are the supported way to ship a prebuilt
+# binary.
+homebrew_casks:
+  - name: sonde
+    homepage: https://github.com/FacileStudio/sonde-cli
+    description: Terminal client for Sonde, the suite's self-hosted uptime monitor
+    binaries:
+      - sonde
+    repository:
+      owner: FacileStudio
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    url:
+      verified: github.com/FacileStudio/
+    # The binaries are unsigned, and a cask download carries the quarantine
+    # attribute where a formula's did not. Without this the first run dies on
+    # "cannot be opened because the developer cannot be verified".
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/sonde"]
+          end

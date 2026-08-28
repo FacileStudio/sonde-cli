@@ -1,10 +1,18 @@
 [tools]
 go = "1.26"
+lefthook = "latest"
 
 [tasks.build]
-description = "Build the sonde binary"
-run = "go build -o sonde ."
+description = "Build the binary into ./bin"
+run = "go build -o bin/sonde ."
 
 [tasks.check]
-description = "Run the quality gate: fmt, vet, test, build"
-run = "gofmt -l . && go vet ./... && go test ./... && go build ./..."
+description = "Run the full quality gate: gofmt, vet, test"
+run = "sh ./scripts/check.sh"
+
+[tasks.format]
+description = "Format the Go sources in place"
+run = "sh ./scripts/check.sh --format"
+
+[hooks]
+postinstall = "lefthook install"
