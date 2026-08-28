@@ -6,6 +6,10 @@
 // The tokens it returns belong to the provider, not to Sonde. They are traded
 // for a Sonde session at porte's device exchange endpoint and never written to
 // disk.
+//
+// The package is three files: this one holds the constants and the transport,
+// discovery.go asks the provider what it offers, and poll.go waits for the
+// human.
 package devicegrant
 
 import (
@@ -15,7 +19,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 )
@@ -47,15 +50,6 @@ const DefaultClientID = "facile-cli"
 // exchange is the one that has to last.
 const DefaultScopes = "openid profile email"
 
-// discoveryPath is the only discovery path worth asking for.
-const discoveryPath = "/.well-known/openid-configuration"
-
-// slowDownStep is what RFC 8628 §3.5 requires: on slow_down the client adds
-// five seconds to its interval, for this request and every request after it.
-// Ignoring it is how a client polls itself into a rate limit and then reports
-// the resulting refusal as a failed login.
-const slowDownStep = 5 * time.Second
-
 // defaultInterval is the poll cadence when the provider names none.
 const defaultInterval = 5 * time.Second
 
@@ -64,24 +58,6 @@ const defaultExpiry = 10 * time.Minute
 
 // requestTimeout bounds one call to the provider.
 const requestTimeout = 15 * time.Second
-
-// Issuer is the provider to run the grant against.
-func Issuer() string {
-	if override := strings.TrimSpace(os.Getenv(IssuerEnv)); override != "" {
-		return override
-	}
-	return DefaultIssuer
-}
-
-// Provider is the part of a discovery document this package uses.
-// OffersDeviceGrant is the provider's own answer to "can you do this at all":
-// an advertised endpoint is not an implemented grant, so grant_types_supported
-// is what decides.
-type Provider struct {
-	DeviceAuthorization string
-	Token               string
-	OffersDeviceGrant   bool
-}
 
 // Authorization is the device authorization response, RFC 8628 §3.2.
 // URIComplete carries the user code in the URL, so a phone that can follow a
@@ -95,38 +71,14 @@ type Authorization struct {
 	Expires     time.Duration
 }
 
-// Discover reads the endpoints out of the provider's discovery document rather
-// than assembling paths from the issuer, so a provider that moves an endpoint
-// moves it for this CLI too and nobody has to ship a release for it.
-func Discover(ctx context.Context, issuer string) (Provider, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		strings.TrimSuffix(issuer, "/")+discoveryPath, nil)
-	if err != nil {
-		return Provider{}, err
-	}
-	status, doc, err := send(request)
-	if err != nil {
-		return Provider{}, err
-	}
-	if status < 200 || status > 299 || doc == nil {
-		return Provider{}, fmt.Errorf("%s served no OpenID configuration (%d)", issuer, status)
-	}
-
-	found := Provider{
-		DeviceAuthorization: text(doc, "device_authorization_endpoint"),
-		Token:               text(doc, "token_endpoint"),
-	}
-	grants, _ := doc["grant_types_supported"].([]any)
-	for _, grant := range grants {
-		if named, ok := grant.(string); ok && named == GrantType {
-			found.OffersDeviceGrant = found.DeviceAuthorization != "" && found.Token != ""
-		}
-	}
-	return found, nil
-}
-
 // Authorize is RFC 8628 §3.1. It sends no client secret, because this is a
 // public client.
+//
+// The verification URIs are checked before they are returned. They are the one
+// part of this flow that ends up in front of the operating system rather than
+// in front of the parser: the caller prints them and offers to open them, so a
+// provider that answered with a javascript: or file: URL would be choosing what
+// this machine executes.
 func (p Provider) Authorize(ctx context.Context, clientID, scopes string) (Authorization, error) {
 	status, doc, err := p.postForm(ctx, p.DeviceAuthorization, url.Values{
 		"client_id": {clientID},
@@ -151,102 +103,24 @@ func (p Provider) Authorize(ctx context.Context, clientID, scopes string) (Autho
 	if auth.DeviceCode == "" || auth.UserCode == "" || auth.URI == "" {
 		return Authorization{}, fmt.Errorf("the provider's device authorization was not usable")
 	}
+	if err := checkVerificationURIs(auth); err != nil {
+		return Authorization{}, err
+	}
 	return auth, nil
 }
 
-// schedule is the polling clock. The interval lives here rather than being
-// recomputed from each response because slow_down is cumulative: two of them
-// mean ten seconds more, not five. step is a field so a test can prove that
-// arithmetic without sleeping through it.
-type schedule struct {
-	interval time.Duration
-	step     time.Duration
-	deadline time.Time
-}
-
-// wait sleeps out one polling interval and reports whether there was still time
-// left to poll at all.
-func (s *schedule) wait(ctx context.Context) bool {
-	if !time.Now().Before(s.deadline) {
-		return false
-	}
-	select {
-	case <-ctx.Done():
-		return false
-	case <-time.After(s.interval):
-		return true
-	}
-}
-
-// slower applies RFC 8628 §3.5's slow_down to every request from here on.
-func (s *schedule) slower() { s.interval += s.step }
-
-// AwaitToken polls the token endpoint until the user approves, refuses, or runs
-// out of time, backing off by five seconds every time the provider answers
-// slow_down.
-func (p Provider) AwaitToken(ctx context.Context, clientID string, auth Authorization) (string, error) {
-	return p.await(ctx, clientID, auth, &schedule{
-		interval: auth.Interval,
-		step:     slowDownStep,
-		deadline: time.Now().Add(auth.Expires),
-	})
-}
-
-// await is AwaitToken with the clock supplied. A transport error is retried
-// rather than fatal: the deadline already bounds the loop, and a dropped packet
-// on the fourth poll is no reason to make somebody go and type a new code.
-func (p Provider) await(ctx context.Context, clientID string, auth Authorization, poll *schedule) (string, error) {
-	for poll.wait(ctx) {
-		status, doc, err := p.postForm(ctx, p.Token, url.Values{
-			"grant_type":  {GrantType},
-			"device_code": {auth.DeviceCode},
-			"client_id":   {clientID},
-		})
-		if err != nil {
+// checkVerificationURIs refuses a verification address this CLI should not put
+// in front of a human or hand to a browser.
+func checkVerificationURIs(auth Authorization) error {
+	for _, candidate := range []string{auth.URI, auth.URIComplete} {
+		if candidate == "" {
 			continue
 		}
-		token, slower, err := read(status, doc)
-		switch {
-		case err != nil:
-			return "", err
-		case token != "":
-			return token, nil
-		case slower:
-			poll.slower()
+		if err := requireSecureURL(candidate); err != nil {
+			return fmt.Errorf("the provider's verification address is not usable — %w", err)
 		}
 	}
-	if ctx.Err() != nil {
-		return "", ctx.Err()
-	}
-	return "", fmt.Errorf("the code expired after %s without being approved — run `sonde login` again",
-		auth.Expires.Round(time.Second))
-}
-
-// read turns one poll into the three things that can happen: the grant
-// completed, keep waiting, or stop. RFC 8628 §3.5's errors are not
-// interchangeable — telling somebody their code expired when they in fact
-// refused it sends them to retry the thing they meant to stop.
-func read(status int, doc map[string]any) (string, bool, error) {
-	if status >= 200 && status <= 299 {
-		token := text(doc, "access_token")
-		if token == "" {
-			return "", false, fmt.Errorf("the provider approved this machine but returned no access token")
-		}
-		return token, false, nil
-	}
-
-	switch text(doc, "error") {
-	case "authorization_pending":
-		return "", false, nil
-	case "slow_down":
-		return "", true, nil
-	case "access_denied":
-		return "", false, fmt.Errorf(
-			"the sign-in was refused at the provider — run `sonde login` again if that was not deliberate")
-	case "expired_token":
-		return "", false, fmt.Errorf("the provider expired the code before it was approved — run `sonde login` again")
-	}
-	return "", false, fmt.Errorf("the provider refused the device grant (%d: %s)", status, refusal(doc))
+	return nil
 }
 
 // postForm sends application/x-www-form-urlencoded, which is what an OAuth

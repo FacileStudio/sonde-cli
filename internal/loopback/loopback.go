@@ -94,7 +94,17 @@ func RandomState() (string, error) {
 // OpenBrowser hands the URL to the operating system's default browser. It is
 // best effort: false means no browser could be launched and the caller should
 // print the URL for the user to open by hand.
+//
+// Only http and https are handed over. `open` and `xdg-open` dispatch on
+// scheme and will happily launch a file, an application, or a registered
+// custom handler, and one of this CLI's two callers passes a string the
+// identity provider chose. Refusing anything else here covers both call sites
+// once, at the point where the string stops being data and becomes a command.
 func OpenBrowser(rawURL string) bool {
+	if !openable(rawURL) {
+		return false
+	}
+
 	var command *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
@@ -105,6 +115,15 @@ func OpenBrowser(rawURL string) bool {
 		command = exec.Command("xdg-open", rawURL)
 	}
 	return command.Start() == nil
+}
+
+// openable reports whether a URL is one a browser should be asked to open.
+func openable(rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Host == "" {
+		return false
+	}
+	return parsed.Scheme == "https" || parsed.Scheme == "http"
 }
 
 // WaitForCode serves the login callback and returns the one-time code porte
