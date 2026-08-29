@@ -9,6 +9,22 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While on
 
 Nothing yet.
 
+## [0.2.0] — 2026-08-29
+
+### Added
+
+- `integrations/SKILL.md`, so `facile install sonde` registers the agent skill
+  and Claude and Codex can drive the CLI. Sonde was the one suite tool an agent
+  could not reach. Paired with `skill: sonde` in facile's catalog.
+- `docs/architecture.md` and `docs/configuration.md`, the two pages the docs
+  standard makes mandatory.
+
+### Changed
+
+- `docs/README.md` and the README's documentation block are tables, and the
+  README carries the suite footer.
+- The install section documents `--no-skill`, which now has something to skip.
+
 ## [0.1.0] — 2026-08-28
 
 ### Added

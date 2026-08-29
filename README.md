@@ -37,6 +37,9 @@ Already have `facile`:
 facile install sonde
 ```
 
+`facile install` also registers the agent skill in `integrations/SKILL.md`, so Claude and
+Codex can drive the CLI. Pass `--no-skill` to install the binary alone.
+
 ## Quick start
 
 ```sh
@@ -101,8 +104,15 @@ install.sh               facile shim
 
 ## Documentation
 
-- [docs/usage.md](docs/usage.md) — full command reference
-- [docs/development.md](docs/development.md) — building, testing, releasing
-- [CHANGELOG.md](CHANGELOG.md) — what shipped, per release
+| Doc | What's in it |
+|---|---|
+| [Architecture](docs/architecture.md) | How the client talks to an instance, and why it stores what it does |
+| [Configuration](docs/configuration.md) | The config file, the environment, and precedence |
+| [Development](docs/development.md) | Local setup, the quality gate, releasing |
+| [Usage](docs/usage.md) | Every command and flag |
+| [Changelog](CHANGELOG.md) | What shipped, per release |
 
-Part of [Facile Studio](https://github.com/FacileStudio).
+---
+
+Part of the [Facile Suite](https://facile.studio) — self-hosted tools for creative studios
+and freelancers. One login, zero cloud dependency.
