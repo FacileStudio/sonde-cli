@@ -4,7 +4,7 @@ Every command accepts `--url <url>`, `--json` and `--no-color`.
 
 `--json` prints one document to stdout and nothing else, and forces colour off.
 Every command that carries data honours it: `monitors list`, `monitors add`,
-`monitors remove`, `status` and `incidents`.
+`monitors remove`, `status`, `incidents`, `keys list`, `keys create`, and `keys revoke`.
 
 Exit codes are `0` success, `1` failure, `2` usage error, `130` on Ctrl-C.
 
@@ -110,6 +110,18 @@ sonde incidents [--monitor <id|slug>]
 
 Newest first, capped at 200 by the instance. An incident with no resolved time
 is still running.
+
+## keys
+
+```sh
+sonde keys list [--app <name>]
+sonde keys create --app <name> [--public] [--origins <urls>] [--quota <N>]
+sonde keys revoke <id> [--yes]
+```
+
+Manages secret and public API keys. `create` outputs the raw one-time token to
+stdout (or as part of the JSON payload under `--json`). `revoke` accepts an
+integer key ID.
 
 ## Credentials
 

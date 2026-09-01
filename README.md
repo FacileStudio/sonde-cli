@@ -6,11 +6,11 @@ the shell.
 
 ## What it does
 
-- `sonde push <token>` — cron-friendly heartbeat for a push monitor, no login
+- `sonde push <token>`: cron-friendly heartbeat for a push monitor, no login
 - Signs in through the suite identity provider's device grant, so a server whose
   browser is on another machine can still log in, with the loopback browser flow
   as the fallback
-- `sonde monitors list/add/remove`, `sonde status`, `sonde incidents`
+- `sonde monitors list/add/remove`, `sonde status`, `sonde incidents`, `sonde keys list/create/revoke`
 - `--json` on every command that carries data
 - Credential precedence flag > environment (`SONDE_TOKEN`, `SONDE_SERVER_URL`) >
   config file

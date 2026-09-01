@@ -9,6 +9,16 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While on
 
 Nothing yet.
 
+## [0.3.0] — 2026-09-01
+
+### Added
+
+- `sonde keys {list,create,revoke}` command group to manage API keys.
+- Secret and public API key creation with `--public`, `--origins`, and `--quota`.
+- Key revocation by ID with `--yes` confirmation flag.
+- `--app` filter on `sonde keys list`.
+- `--json` output support for all keys commands.
+
 ## [0.2.0] — 2026-08-29
 
 ### Added
@@ -67,5 +77,7 @@ Nothing yet.
   needs the device grant cannot run. An instance with no device exchange is
   named as the instance, not as the provider.
 
-[Unreleased]: https://github.com/FacileStudio/sonde-cli/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/FacileStudio/sonde-cli/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/FacileStudio/sonde-cli/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/FacileStudio/sonde-cli/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/FacileStudio/sonde-cli/releases/tag/v0.1.0

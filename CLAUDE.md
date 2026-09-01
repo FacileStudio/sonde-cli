@@ -19,7 +19,7 @@ main.go                  hands off to cmd
 cmd/                     one file per command; root.go owns the global flags,
                          the exit codes and the client factory
 internal/
-  api/                   the HTTP surface (client.go, auth.go, monitors.go)
+  api/                   the HTTP surface (client.go, auth.go, monitors.go, keys.go)
   config/                the instance URL and the session token
   devicegrant/           RFC 8628 against the identity provider, in three files:
                          constants and transport, discovery.go, poll.go
@@ -46,7 +46,7 @@ is wrong.
 - **Exit codes**: `0` success, `1` failure, `2` usage, `130` SIGINT. `root.go`
   maps them; `commandStarted` distinguishes a usage error from a failed one,
   because cobra validates args before its hooks run and flags after them.
-- **`--version` prints exactly `sonde <semver>`** — the installer parses that
+- **`--version` prints exactly `sonde <semver>`**: the installer parses that
   line, so `SetVersionTemplate` is not decoration.
 - **A credential change is a paired change** with the `sonde` row in
   `facile/internal/manifest/tools.yml`. That row is transcribed from the read
