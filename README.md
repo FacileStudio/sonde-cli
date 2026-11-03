@@ -43,7 +43,7 @@ Codex can drive the CLI. Pass `--no-skill` to install the binary alone.
 ## Quick start
 
 ```sh
-sonde login https://sonde.example.com
+sonde login
 sonde monitors add --slug site --name Site --target https://example.com
 sonde status
 ```
@@ -61,19 +61,18 @@ sonde monitors add --slug backups --name "Nightly backups" --type push --interva
 
 ## Signing in
 
-`sonde login` asks the instance what it accepts, then picks a flow:
+`sonde login` with no URL signs in to https://sonde.facile.studio. It opens
+your browser, your existing Facile session completes the login with no prompt,
+and the CLI stores the session. Nothing to copy or paste.
 
-- **Device grant**, when the instance serves `POST
-  /api/auth/oidc/device/exchange` and `sso.facile.studio` advertises
-  `urn:ietf:params:oauth:grant-type:device_code`. It prints a short code to
-  enter on any device, then trades the provider's token for a Sonde session.
-  This is the path for a server, where the loopback flow cannot work.
-- **Loopback**, otherwise: a browser on this machine, a one-time code back on
-  `127.0.0.1`, exchanged at `/api/auth/oidc/exchange`.
+- **Browser (default)**: a one-time code comes back on `127.0.0.1` and is
+  exchanged at `/api/auth/oidc/exchange`.
+- **Device grant**, on a machine with no browser (SSH, CI): it prints a short
+  code to approve from a logged-in session on any device.
 - **Password**, on an instance with no identity provider configured.
+- **Token**: `sonde login --token <token>` or `--token-stdin`.
 
-Both questions are asked before a code is printed, so a machine that would end
-up on the loopback flow never makes anybody type a code first.
+Pass a URL to sign in to a self-hosted instance.
 
 ## Configuration
 
@@ -83,9 +82,8 @@ up on the loopback flow never makes anybody type a code first.
 | `SONDE_TOKEN` | Credential, for CI |
 | `SONDE_OIDC_ISSUER` | Identity provider for the device grant. Must be https, or loopback |
 
-Config file: `${XDG_CONFIG_HOME:-~/.config}/sonde/config.yml`. There is no
-default instance URL: Sonde is self-hosted, and guessing an address would send a
-first login somewhere that is not yours.
+Config file: `${XDG_CONFIG_HOME:-~/.config}/sonde/config.yml`. With nothing
+configured the CLI talks to https://sonde.facile.studio.
 
 ## Structure
 

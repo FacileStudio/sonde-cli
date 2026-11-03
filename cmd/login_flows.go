@@ -6,14 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
+	"github.com/FacileStudio/porte/loopback"
 	"golang.org/x/term"
 
 	"github.com/FacileStudio/sonde-cli/internal/api"
 	"github.com/FacileStudio/sonde-cli/internal/devicegrant"
-	"github.com/FacileStudio/sonde-cli/internal/loopback"
 	"github.com/FacileStudio/sonde-cli/internal/ui"
 )
 
@@ -96,6 +98,30 @@ func announceCode(authorization devicegrant.Authorization) {
 	ui.Step("waiting for approval — the code lasts %s", authorization.Expires.Round(time.Second))
 }
 
+const porteMount = "/api"
+
+// browserAvailable reports whether opening a URL can plausibly reach a person
+// at this machine: an interactive terminal, an opener on PATH, a display.
+func browserAvailable() bool {
+	if loginNoBrowser || !term.IsTerminal(int(os.Stdout.Fd())) {
+		return false
+	}
+	opener := "xdg-open"
+	switch runtime.GOOS {
+	case "darwin":
+		opener = "open"
+	case "windows":
+		opener = "cmd"
+	}
+	if _, err := exec.LookPath(opener); err != nil {
+		return false
+	}
+	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+		return os.Getenv("SSH_CONNECTION") == ""
+	}
+	return os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""
+}
+
 // loopbackLogin runs the porte CLI flow: a listener on loopback, a browser, a
 // redirect back carrying a one-time code, and an exchange for the session
 // token. The state nonce is minted here and verified by the listener, so a
@@ -106,22 +132,21 @@ func loopbackLogin(ctx context.Context, client *api.Client, serverURL string) (s
 		return "", err
 	}
 	defer listener.Close()
+	listener.AppName = "Sonde"
 
 	state, err := loopback.RandomState()
 	if err != nil {
 		return "", err
 	}
 
-	target := listener.LoginURL(serverURL, state)
+	target := listener.LoginURL(serverURL, porteMount, state)
 	if loginNoBrowser || !loopback.OpenBrowser(target) {
 		ui.Step("open this URL to sign in")
 		ui.Hint("%s", target)
 	} else {
-		ui.Step("opening your browser to sign in")
-		ui.Hint("if nothing opened, run login again with --no-browser and open the URL yourself")
+		ui.Step("opening your browser to sign in, waiting for it to finish")
 	}
 
-	ui.Step("waiting for the login to complete")
 	code, err := listener.WaitForCode(ctx, state)
 	if err != nil {
 		return "", wrapInterrupt(ctx, err)

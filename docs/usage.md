@@ -14,30 +14,19 @@ Exit codes are `0` success, `1` failure, `2` usage error, `130` on Ctrl-C.
 sonde login [url] [--token <token> | --token-stdin] [--no-browser]
 ```
 
-The instance is asked what it accepts at `GET /api/auth/config` before anything
-is typed. Where it offers single sign-on there are two browser paths, and the
-CLI picks between them before it prints anything:
+With no URL it signs in to https://sonde.facile.studio. The instance is asked
+what it accepts at `GET /api/auth/config` first.
 
-1. **Device grant.** It probes `POST /api/auth/oidc/device/exchange` with an
-   empty body. A 404 means this instance has not shipped the endpoint; anything
-   else, including the 400 an empty body earns, means it has. It then reads
-   `https://sso.facile.studio/.well-known/openid-configuration` and checks that
-   `grant_types_supported` lists
-   `urn:ietf:params:oauth:grant-type:device_code` — an advertised endpoint is
-   not an implemented grant. With both answers yes it runs RFC 8628 as the
-   public client `facile-cli`, prints a short code to enter at the provider,
-   polls the token endpoint (backing off cumulatively on `slow_down`), and
-   trades the resulting access token for a Sonde session at the exchange.
-2. **Loopback.** Otherwise it binds `127.0.0.1:0`, opens
-   `/api/auth/oidc?flow=cli&port=<port>&cli_state=<nonce>`, accepts exactly the
-   callback that echoes the nonce back, and trades the one-time code at
-   `/api/auth/oidc/exchange`.
-
-Both questions are asked before any code is printed. Discovering afterwards that
-the instance cannot trade a token would make the human read a code off one
-screen, type it into another, wait for the poll — and land on the loopback login
-anyway, which is the flow that cannot work when the browser is on another
-machine.
+1. **Browser (default).** On an interactive terminal with a browser it binds
+   `127.0.0.1:0`, opens `/api/auth/oidc?flow=cli&port=<port>&cli_state=<nonce>`,
+   accepts exactly the callback that echoes the nonce back, and trades the
+   one-time code at `/api/auth/oidc/exchange`. The existing Facile session
+   completes it with no prompt.
+2. **Device grant.** With no browser (SSH, CI, `--no-browser`) it probes
+   `POST /api/auth/oidc/device/exchange`, reads the provider's discovery
+   document, runs RFC 8628 as the public client `facile-cli`, prints a short
+   code, and trades the access token for a Sonde session. If either half is
+   missing it falls back to the browser flow.
 
 An instance with no identity provider prompts for an address and a password at
 `POST /api/auth/login`. Under `SSO_ONLY` porte does not register that route at
@@ -137,5 +126,4 @@ Precedence: flag > environment > config file.
 - Config lives at `${XDG_CONFIG_HOME:-~/.config}/sonde/config.yml`, created
   `0600` in a `0700` directory, and tightened on read if it is found looser.
 
-There is no default instance URL. Sonde is self-hosted and guessing an address
-would send a first login somewhere that is not yours.
+With nothing configured the CLI uses https://sonde.facile.studio.

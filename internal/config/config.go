@@ -26,9 +26,10 @@ const URLEnv = "SONDE_SERVER_URL"
 // the canonical one, so a profile that already exports it keeps working.
 const URLEnvAlias = "SONDE_URL"
 
-// Config is the whole stored state. There is no default instance URL on
-// purpose: Sonde is self-hosted and guessing an address for it would send a
-// first login somewhere that is not the user's.
+// DefaultURL is the hosted instance used when nothing else names one.
+const DefaultURL = "https://sonde.facile.studio"
+
+// Config is the whole stored state.
 type Config struct {
 	URL   string `yaml:"url,omitempty"`
 	Token string `yaml:"token,omitempty"`
@@ -178,7 +179,7 @@ func NormalizeURL(raw string) string {
 }
 
 // ResolveURL applies the precedence the CLI standard requires, highest first:
-// the flag, SONDE_SERVER_URL, then what login stored.
+// the flag, SONDE_SERVER_URL, what login stored, then DefaultURL.
 func ResolveURL(stored, flag string) string {
 	if flag != "" {
 		return NormalizeURL(flag)
@@ -186,7 +187,10 @@ func ResolveURL(stored, flag string) string {
 	if fromEnv := urlFromEnv(); fromEnv != "" {
 		return NormalizeURL(fromEnv)
 	}
-	return NormalizeURL(stored)
+	if stored != "" {
+		return NormalizeURL(stored)
+	}
+	return DefaultURL
 }
 
 // urlFromEnv reads the instance URL, preferring the canonical

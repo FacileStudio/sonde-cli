@@ -30,18 +30,16 @@ var errSSOOnly = errors.New(
 
 var loginCmd = &cobra.Command{
 	Use:   "login [url]",
-	Short: "Authenticate with a Sonde instance",
+	Short: "Authenticate with a Sonde instance (default https://sonde.facile.studio)",
 	Long: `Stores the instance URL and the session token it returns, so later commands
 need neither.
 
-The instance is asked what it accepts before anything is typed. Where it offers
-single sign-on there are two browser paths and the CLI picks between them:
+With no URL it signs in to https://sonde.facile.studio. By default it opens
+your browser, your existing Facile session completes the login with no prompt,
+and the CLI stores the session. Nothing to copy or paste.
 
-  * the device grant at sso.facile.studio, for a machine whose browser is
-    somewhere else. It prints a short code to carry to a phone, and trades the
-    resulting provider token for a Sonde session.
-  * the loopback flow, when the instance has not shipped the device exchange or
-    the provider does not offer the grant. The browser must be on this machine.
+A machine with no browser (SSH, CI) falls back to the device grant: it prints
+a short code to approve from a logged-in session on any device.
 
 An instance with no identity provider takes an address and a password instead.
 Alternatives that skip all of it:
@@ -57,10 +55,7 @@ Alternatives that skip all of it:
 		if err != nil {
 			return err
 		}
-		serverURL, err := resolveLoginURL(cfg.URL, args)
-		if err != nil {
-			return err
-		}
+		serverURL := resolveLoginURL(cfg.URL, args)
 
 		token, err := acquireToken(ctx, serverURL)
 		if err != nil {
@@ -80,17 +75,13 @@ Alternatives that skip all of it:
 }
 
 // resolveLoginURL applies the precedence the CLI standard requires, highest
-// first: the positional argument, --url, SONDE_SERVER_URL, then the stored URL.
-// Sonde is self-hosted and has no built-in default to fall back on.
-func resolveLoginURL(stored string, args []string) (string, error) {
-	resolved := config.ResolveURL(stored, flagURL)
+// first: the positional argument, --url, SONDE_SERVER_URL, the stored URL, then
+// the hosted instance.
+func resolveLoginURL(stored string, args []string) string {
 	if len(args) == 1 {
-		resolved = config.NormalizeURL(args[0])
+		return config.NormalizeURL(args[0])
 	}
-	if resolved == "" {
-		return "", fmt.Errorf("no instance given — run `sonde login <url>` or set %s", config.URLEnv)
-	}
-	return resolved, nil
+	return config.ResolveURL(stored, flagURL)
 }
 
 // acquireToken produces the session token to store, either from a token the
@@ -120,30 +111,26 @@ func acquireToken(ctx context.Context, serverURL string) (string, error) {
 	}
 }
 
-// federatedLogin prefers the device grant and falls back to the loopback flow.
-//
-// Both halves of the question are asked before any code is printed. The
-// provider offering RFC 8628 says nothing about whether this instance can trade
-// the resulting token for a Sonde session, and instances gain that endpoint one
-// deployment at a time. Asking afterwards would make the human read a code off
-// one screen, type it into another, wait for the poll to clear, and then land on
-// the loopback login anyway — which is the flow that cannot work when the
-// browser is elsewhere.
+// federatedLogin signs in through the browser on this machine when there is
+// one, and falls back to the device grant when there is not or when the browser
+// path cannot run.
 func federatedLogin(ctx context.Context, client *api.Client, serverURL string) (string, error) {
-	if client.ServesDeviceExchange(ctx) {
-		token, err := deviceLogin(ctx, client)
-		switch {
-		case err == nil:
-			return token, nil
-		case errors.Is(err, errNoDeviceGrant):
-			ui.Hint("the identity provider does not offer the device grant — using the browser on this machine")
-		case errors.Is(err, errNoDeviceExchange):
-			ui.Hint("this instance has not shipped the device exchange — using the browser on this machine")
-		default:
-			return "", err
-		}
+	if browserAvailable() {
+		return loopbackLogin(ctx, client, serverURL)
 	}
-	return loopbackLogin(ctx, client, serverURL)
+	if !client.ServesDeviceExchange(ctx) {
+		return loopbackLogin(ctx, client, serverURL)
+	}
+	token, err := deviceLogin(ctx, client)
+	switch {
+	case err == nil:
+		return token, nil
+	case errors.Is(err, errNoDeviceGrant), errors.Is(err, errNoDeviceExchange):
+		ui.Hint("device approval is not available here, using the browser flow")
+		return loopbackLogin(ctx, client, serverURL)
+	default:
+		return "", err
+	}
 }
 
 // readTokenFromStdin takes a credential off a pipe, which is how a provisioning

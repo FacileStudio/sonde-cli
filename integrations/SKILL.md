@@ -26,7 +26,7 @@ Triggers: "is it up", "down", "downtime", "uptime", "monitor", "incident",
 
 ### Setup
 ```
-sonde login [url]                 Authenticate (browser under SSO, or password)
+sonde login [url]                 Authenticate (default https://sonde.facile.studio)
 sonde logout                      Revoke the stored session
 ```
 

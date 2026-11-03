@@ -61,8 +61,8 @@ is wrong.
 - **The instance and the identity provider are different machines.** A device
   login can fail because the provider declines the grant, because the instance
   never shipped the exchange, or because neither could be reached. The first two
-  fall back to the loopback flow; the third fails, because the machine that
-  needs the device grant is the machine that cannot run a browser.
+  fall back to the loopback flow; the third fails. The browser flow is the
+  default whenever a browser is available; the device grant is the fallback.
 - **`ServesDeviceExchange` probes with an empty POST body.** A route that exists
   refuses it on its merits with a 400; only a 404 says the route is absent.
 - **Nothing in a `ui.Table` cell is coloured.** tabwriter measures a cell in

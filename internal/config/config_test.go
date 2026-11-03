@@ -140,6 +140,9 @@ func TestResolutionFollowsTheStandardLadder(t *testing.T) {
 	if got := ResolveURL("https://stored.example.test", ""); got != "https://stored.example.test" {
 		t.Errorf("with nothing set = %q, want the stored URL", got)
 	}
+	if got := ResolveURL("", ""); got != DefaultURL {
+		t.Errorf("with nothing at all = %q, want the hosted default", got)
+	}
 	if got := ResolveToken("from-file"); got != "from-file" {
 		t.Errorf("token = %q, want the stored token", got)
 	}

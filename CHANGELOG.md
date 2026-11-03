@@ -7,7 +7,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While on
 
 ## [Unreleased]
 
-Nothing yet.
+## [0.4.0] — 2026-11-03
+
+### Changed
+
+- `sonde login` with no URL signs in to https://sonde.facile.studio, and the same default applies wherever a server is needed.
+- `sonde login` opens the browser by default and completes with the existing Facile session; the device grant is now the fallback for machines with no browser.
+- The loopback listener is now `porte/loopback`, so the browser lands on the shared "you can close this tab" page.
 
 ## [0.3.0] — 2026-09-01
 
