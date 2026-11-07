@@ -7,6 +7,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While on
 
 ## [Unreleased]
 
+### Added
+
+- `sonde status-pages {list,create,update,delete}` to manage public status pages, with `--slug`, `--title` and `--monitors` (slugs or ids, in display order).
+
 ## [0.4.0] — 2026-11-03
 
 ### Changed
