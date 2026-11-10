@@ -7,6 +7,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While on
 
 ## [Unreleased]
 
+### Added
+
+- sonde-cli is released under the [MIT License](LICENSE).
+
 ## [0.5.0] — 2026-11-07
 
 ### Added

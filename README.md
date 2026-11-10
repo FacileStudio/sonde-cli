@@ -110,6 +110,10 @@ install.sh               facile shim
 | [Usage](docs/usage.md) | Every command and flag |
 | [Changelog](CHANGELOG.md) | What shipped, per release |
 
+## License
+
+sonde-cli is released under the [MIT License](LICENSE).
+
 ---
 
 Part of the [Facile Suite](https://facile.studio) — self-hosted tools for creative studios
