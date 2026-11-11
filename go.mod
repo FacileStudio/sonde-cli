@@ -1,6 +1,6 @@
 module github.com/FacileStudio/sonde-cli
 
-go 1.26
+go 1.26.11
 
 require (
 	github.com/FacileStudio/porte v0.5.2
