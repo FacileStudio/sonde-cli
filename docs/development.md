@@ -47,6 +47,6 @@ Nothing here is invented. When one of these moves, this CLI moves with it:
 ## Releases
 
 Tag `vX.Y.Z` and push it. `.github/workflows/release.yml` runs GoReleaser,
-which publishes the archives and checksums `facile install sonde` downloads and
+which publishes the archives and checksums `kit add sonde` downloads and
 updates the Homebrew cask in `FacileStudio/homebrew-tap`. The cask step needs
 `HOMEBREW_TAP_GITHUB_TOKEN` in the repository secrets.
