@@ -19,7 +19,7 @@ the shell.
 ## Stack
 
 - Go 1.26, cobra for the command surface
-- GoReleaser for releases, `facile` for installation
+- GoReleaser for releases, `kit` for installation
 
 ## Install
 
@@ -27,18 +27,18 @@ the shell.
 curl -fsSL https://raw.githubusercontent.com/FacileStudio/sonde-cli/main/install.sh | bash
 ```
 
-Installs to `~/.local/bin` via [facile](https://github.com/FacileStudio/facile),
-the suite installer. Pass `--bin-dir <dir>` to change that, `--source` to build
-from source.
+Installs to `~/.local/bin` via [kit](https://github.com/FacileStudio/kit),
+the Facile package manager. Pass `--bin-dir <dir>` to change that, `--source`
+to build from source, `--no-skill` to skip AI agent skill registration.
 
-Already have `facile`:
+Already have `kit`:
 
 ```sh
-facile install sonde
+kit add sonde
 ```
 
-`facile install` also registers the agent skill in `integrations/SKILL.md`, so Claude and
-Codex can drive the CLI. Pass `--no-skill` to install the binary alone.
+`kit add` also registers the agent skill in `integrations/SKILL.md`, so Claude and
+Codex can drive the CLI.
 
 ## Quick start
 
@@ -97,7 +97,7 @@ internal/devicegrant/    RFC 8628 against sso.facile.studio: constants and
 internal/loopback/       the same-machine browser flow
 internal/ui/             output vocabulary per CLI-STANDARD §7
 docs/                    usage and development docs
-install.sh               facile shim
+install.sh               kit shim
 ```
 
 ## Documentation

@@ -25,7 +25,7 @@ internal/
                          constants and transport, discovery.go, poll.go
   loopback/              the same-machine browser flow
   ui/                    CLI-STANDARD §7 output vocabulary
-install.sh               a shim; the installer itself is `facile`
+install.sh               a shim; the installer itself is `kit`
 ```
 
 Dependencies are cobra, `fatih/color`, `golang.org/x/term` and `gopkg.in/yaml.v3`.
